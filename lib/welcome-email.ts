@@ -1,6 +1,10 @@
 const WHATSAPP_GROUP_LINK = 'https://chat.whatsapp.com/FS4C1oLVj07GOCctAzMyX8?mode=gi_t'
 
 export function getWelcomeEmailHtml(name: string) {
+  const appBaseUrl = process.env.NEXT_PUBLIC_SITE_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  const dashboardLoginUrl = `${appBaseUrl.replace(/\/$/, '')}/login`
+
   return `
     <!DOCTYPE html>
     <html>
@@ -29,8 +33,12 @@ export function getWelcomeEmailHtml(name: string) {
               </ul>
             </div>
 
-            <div style="text-align:center; margin:28px 0 22px;">
+            <div style="text-align:center; margin:28px 0 14px;">
               <a href="${WHATSAPP_GROUP_LINK}" target="_blank" style="display:inline-block; text-decoration:none; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-weight:700; font-size:16px; padding:14px 22px; border-radius:999px; box-shadow:0 8px 24px rgba(34,197,94,0.35);">Join WhatsApp Community</a>
+            </div>
+
+            <div style="text-align:center; margin:0 0 22px;">
+              <a href="${dashboardLoginUrl}" target="_blank" style="display:inline-block; text-decoration:none; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff; font-weight:700; font-size:15px; padding:12px 20px; border-radius:999px;">Login to Dashboard & Start Learning</a>
             </div>
 
             <p style="margin:0; text-align:center; color:#94a3b8; font-size:13px; line-height:1.6;">
