@@ -41,7 +41,7 @@ export default function Home() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
           </span>
-          <span className="text-sm text-gray-300">500+ students already joined</span>
+          <span className="text-sm text-gray-300">Limited Spots Available</span>
         </div>
 
         <h1 className="text-5xl md:text-7xl font-bold mb-6 max-w-4xl leading-tight">
