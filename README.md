@@ -68,7 +68,6 @@ ADMIN_SESSION_SECRET=your_long_random_secret
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
 
 ## Admin Login
 
