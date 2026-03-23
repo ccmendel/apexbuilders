@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   if (bootstrapEmail && !merged.find((admin) => admin.email.toLowerCase() === bootstrapEmail)) {
     merged.unshift({
       id: 'bootstrap-admin',
-      name: 'Primary Admin',
+      name: 'CCMendel',
       email: bootstrapEmail,
       created_at: new Date(0).toISOString(),
     })

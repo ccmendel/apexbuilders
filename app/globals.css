@@ -59,3 +59,18 @@ body {
 input[type="checkbox"] {
   @apply w-5 h-5 rounded border-2 border-purple-500 bg-transparent checked:bg-purple-600 checked:border-purple-600 focus:ring-purple-500 focus:ring-2;
 }
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(110vh) rotate(540deg);
+    opacity: 0.1;
+  }
+}
+
+.animate-confetti-fall {
+  animation: confetti-fall 3.4s linear infinite;
+}
