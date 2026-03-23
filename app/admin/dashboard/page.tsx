@@ -12,6 +12,8 @@ interface User {
   phone: string
   country: string
   added_to_whatsapp: boolean
+  is_suspended?: boolean
+  suspended_at?: string | null
   created_at: string
 }
 
@@ -159,6 +161,44 @@ export default function AdminDashboardPage() {
       setUsers(users.map(user => 
         user.id === userId ? { ...user, added_to_whatsapp: !currentStatus } : user
       ))
+    }
+  }
+
+  const handleSuspendUser = async (userId: string, currentlySuspended: boolean) => {
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ suspend: !currentlySuspended }),
+    })
+
+    if (response.ok) {
+      setUsers(users.map((user) => user.id === userId
+        ? {
+            ...user,
+            is_suspended: !currentlySuspended,
+            suspended_at: !currentlySuspended ? new Date().toISOString() : null,
+          }
+        : user
+      ))
+    }
+  }
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    const shouldDelete = confirm(`Delete ${userEmail} completely? This will remove auth + database records and allow re-registration with same email.`)
+    if (!shouldDelete) {
+      return
+    }
+
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (response.ok) {
+      setUsers(users.filter((user) => user.id !== userId))
     }
   }
 
@@ -686,14 +726,16 @@ export default function AdminDashboardPage() {
                       <th className="px-6 py-4 text-left text-sm font-semibold">Email</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold">Phone</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold">Country</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold">Joined</th>
                       <th className="px-6 py-4 text-center text-sm font-semibold">WhatsApp</th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold">Manage</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                        <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
                           No users found
                         </td>
                       </tr>
@@ -725,6 +767,13 @@ export default function AdminDashboardPage() {
                             </a>
                           </td>
                           <td className="px-6 py-4 text-gray-400">{user.country}</td>
+                          <td className="px-6 py-4">
+                            {user.is_suspended ? (
+                              <span className="px-3 py-1 rounded-full bg-red-500/20 text-red-300 text-xs font-semibold">Suspended</span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-semibold">Active</span>
+                            )}
+                          </td>
                           <td className="px-6 py-4 text-gray-400 text-sm">
                             {new Date(user.created_at).toLocaleDateString()}
                           </td>
@@ -739,6 +788,26 @@ export default function AdminDashboardPage() {
                             >
                               {user.added_to_whatsapp ? '✓ Added' : 'Mark Added'}
                             </button>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleSuspendUser(user.id, !!user.is_suspended)}
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                                  user.is_suspended
+                                    ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                                    : 'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30'
+                                }`}
+                              >
+                                {user.is_suspended ? 'Unsuspend' : 'Suspend'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(user.id, user.email)}
+                                className="px-3 py-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 text-xs font-semibold transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
