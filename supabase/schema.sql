@@ -37,10 +37,24 @@ CREATE TABLE IF NOT EXISTS admins (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Broadcast campaigns table
+CREATE TABLE IF NOT EXISTS campaigns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  segment TEXT NOT NULL DEFAULT 'all',
+  total_recipients INTEGER NOT NULL DEFAULT 0,
+  sent_count INTEGER NOT NULL DEFAULT 0,
+  failed_count INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 
 -- Policies for users table
 DROP POLICY IF EXISTS "Users can view own data" ON users;
@@ -101,6 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_added_to_whatsapp ON users(added_to_whatsapp);
 CREATE INDEX IF NOT EXISTS idx_courses_created_at ON courses(created_at);
 CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
+CREATE INDEX IF NOT EXISTS idx_campaigns_created_at ON campaigns(created_at);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

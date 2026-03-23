@@ -31,11 +31,23 @@ interface AdminAccount {
   created_at: string
 }
 
+interface Campaign {
+  id: string
+  subject: string
+  segment: 'all' | 'pending' | 'added'
+  total_recipients: number
+  sent_count: number
+  failed_count: number
+  created_by: string
+  created_at: string
+}
+
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'courses' | 'admins'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'courses' | 'admins' | 'analytics' | 'ops' | 'campaigns'>('analytics')
   const [users, setUsers] = useState<User[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [admins, setAdmins] = useState<AdminAccount[]>([])
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddCourse, setShowAddCourse] = useState(false)
   const [showAddAdmin, setShowAddAdmin] = useState(false)
@@ -52,6 +64,14 @@ export default function AdminDashboardPage() {
   const [savingCourse, setSavingCourse] = useState(false)
   const [savingAdmin, setSavingAdmin] = useState(false)
   const [adminError, setAdminError] = useState('')
+  const [campaignForm, setCampaignForm] = useState({
+    subject: '',
+    body: '',
+    segment: 'all' as 'all' | 'pending' | 'added',
+  })
+  const [sendingCampaign, setSendingCampaign] = useState(false)
+  const [campaignMessage, setCampaignMessage] = useState('')
+  const [campaignError, setCampaignError] = useState('')
   const [currentAdminEmail, setCurrentAdminEmail] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending' | 'added'>('all')
   const router = useRouter()
@@ -106,6 +126,15 @@ export default function AdminDashboardPage() {
     if (adminsResponse.ok) {
       const adminsData = await adminsResponse.json()
       setAdmins(adminsData.admins || [])
+    }
+
+    const campaignsResponse = await fetch('/api/admin/campaigns', {
+      credentials: 'include',
+    })
+
+    if (campaignsResponse.ok) {
+      const campaignsData = await campaignsResponse.json()
+      setCampaigns(campaignsData.campaigns || [])
     }
 
     setLoading(false)
@@ -199,6 +228,48 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const handleSendCampaign = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCampaignError('')
+    setCampaignMessage('')
+    setSendingCampaign(true)
+
+    try {
+      const response = await fetch('/api/admin/campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(campaignForm),
+      })
+
+      const data = await response.json().catch(() => ({ error: 'Failed to send campaign' }))
+      if (!response.ok) {
+        setCampaignError(data.error || 'Failed to send campaign')
+        return
+      }
+
+      setCampaignMessage(`Campaign sent: ${data.sentCount}/${data.totalRecipients} delivered`)
+      setCampaignForm({ subject: '', body: '', segment: 'all' })
+      await loadData()
+    } finally {
+      setSendingCampaign(false)
+    }
+  }
+
+  const copyPhone = async (phone: string) => {
+    try {
+      await navigator.clipboard.writeText(phone)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
+
+  const openWhatsApp = (phone: string) => {
+    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}`, '_blank', 'noopener,noreferrer')
+  }
+
   const filteredUsers = users.filter(user => {
     if (filter === 'pending') return !user.added_to_whatsapp
     if (filter === 'added') return user.added_to_whatsapp
@@ -210,6 +281,34 @@ export default function AdminDashboardPage() {
     pending: users.filter(u => !u.added_to_whatsapp).length,
     added: users.filter(u => u.added_to_whatsapp).length
   }
+
+  const conversionRate = stats.total > 0 ? Math.round((stats.added / stats.total) * 100) : 0
+  const pendingRate = stats.total > 0 ? Math.round((stats.pending / stats.total) * 100) : 0
+  const thisWeekCount = users.filter((user) => {
+    const createdAt = new Date(user.created_at).getTime()
+    return createdAt >= Date.now() - 7 * 24 * 60 * 60 * 1000
+  }).length
+
+  const weeklyTrend = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date()
+    day.setHours(0, 0, 0, 0)
+    day.setDate(day.getDate() - (6 - index))
+    const next = new Date(day)
+    next.setDate(next.getDate() + 1)
+
+    const count = users.filter((user) => {
+      const timestamp = new Date(user.created_at).getTime()
+      return timestamp >= day.getTime() && timestamp < next.getTime()
+    }).length
+
+    return {
+      label: day.toLocaleDateString(undefined, { weekday: 'short' }),
+      count,
+    }
+  })
+
+  const maxWeeklyCount = Math.max(...weeklyTrend.map((day) => day.count), 1)
+  const pendingUsers = users.filter((user) => !user.added_to_whatsapp).slice(0, 20)
 
   if (loading) {
     return (
@@ -296,6 +395,16 @@ export default function AdminDashboardPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+              activeTab === 'analytics'
+                ? 'gradient-bg'
+                : 'glass hover:bg-white/20'
+            }`}
+          >
+            Analytics
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
             className={`px-6 py-3 rounded-xl font-semibold transition-all ${
               activeTab === 'users' 
@@ -325,7 +434,216 @@ export default function AdminDashboardPage() {
           >
             Admins
           </button>
+          <button
+            onClick={() => setActiveTab('ops')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+              activeTab === 'ops'
+                ? 'gradient-bg'
+                : 'glass hover:bg-white/20'
+            }`}
+          >
+            WhatsApp Ops
+          </button>
+          <button
+            onClick={() => setActiveTab('campaigns')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+              activeTab === 'campaigns'
+                ? 'gradient-bg'
+                : 'glass hover:bg-white/20'
+            }`}
+          >
+            Broadcast
+          </button>
         </div>
+
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            <div className="grid md:grid-cols-4 gap-4">
+              <div className="glass rounded-xl p-5">
+                <p className="text-sm text-gray-400">Signup → WhatsApp Conversion</p>
+                <p className="text-3xl font-bold mt-1">{conversionRate}%</p>
+              </div>
+              <div className="glass rounded-xl p-5">
+                <p className="text-sm text-gray-400">Pending WhatsApp Rate</p>
+                <p className="text-3xl font-bold mt-1">{pendingRate}%</p>
+              </div>
+              <div className="glass rounded-xl p-5">
+                <p className="text-sm text-gray-400">New Signups (7 days)</p>
+                <p className="text-3xl font-bold mt-1">{thisWeekCount}</p>
+              </div>
+              <div className="glass rounded-xl p-5">
+                <p className="text-sm text-gray-400">Courses Published</p>
+                <p className="text-3xl font-bold mt-1">{courses.length}</p>
+              </div>
+            </div>
+
+            <div className="glass rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">Weekly Signup Trend</h3>
+                <span className="text-sm text-gray-400">Last 7 days</span>
+              </div>
+              <div className="grid grid-cols-7 gap-3 items-end h-44">
+                {weeklyTrend.map((day) => (
+                  <div key={day.label} className="flex flex-col items-center gap-2">
+                    <div className="text-xs text-gray-300">{day.count}</div>
+                    <div
+                      className="w-full gradient-bg rounded-t-md"
+                      style={{ height: `${Math.max((day.count / maxWeeklyCount) * 130, 8)}px` }}
+                    />
+                    <div className="text-xs text-gray-500">{day.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ops' && (
+          <div className="space-y-4">
+            <div className="glass rounded-xl p-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">WhatsApp Operations Queue</h3>
+                <p className="text-sm text-gray-400">Fast workflow for adding users to the community</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300 text-sm font-semibold">
+                {pendingUsers.length} Pending
+              </span>
+            </div>
+
+            {pendingUsers.length === 0 ? (
+              <div className="glass rounded-xl p-10 text-center text-gray-400">No pending users 🎉</div>
+            ) : (
+              <div className="space-y-3">
+                {pendingUsers.map((user) => (
+                  <div key={user.id} className="glass rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{user.name}</p>
+                      <p className="text-sm text-gray-400">{user.email} • {user.country}</p>
+                      <p className="text-sm text-green-300">{user.phone}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => copyPhone(user.phone)}
+                        className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium"
+                      >
+                        Copy Phone
+                      </button>
+                      <button
+                        onClick={() => openWhatsApp(user.phone)}
+                        className="px-3 py-2 rounded-lg bg-green-500/20 text-green-300 hover:bg-green-500/30 text-sm font-medium"
+                      >
+                        Open WhatsApp
+                      </button>
+                      <button
+                        onClick={() => toggleWhatsAppStatus(user.id, user.added_to_whatsapp)}
+                        className="px-3 py-2 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 text-sm font-medium"
+                      >
+                        Mark Added
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'campaigns' && (
+          <div className="space-y-6">
+            <div className="glass rounded-2xl p-6">
+              <h3 className="text-xl font-bold mb-4">Broadcast Email Campaign</h3>
+
+              {campaignError && (
+                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm">{campaignError}</div>
+              )}
+              {campaignMessage && (
+                <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 mb-4 text-green-300 text-sm">{campaignMessage}</div>
+              )}
+
+              <form onSubmit={handleSendCampaign} className="space-y-4">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-2">Subject</label>
+                    <input
+                      type="text"
+                      value={campaignForm.subject}
+                      onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                      placeholder="New week challenge is live 🚀"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Audience</label>
+                    <select
+                      value={campaignForm.segment}
+                      onChange={(e) => setCampaignForm({ ...campaignForm, segment: e.target.value as 'all' | 'pending' | 'added' })}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                    >
+                      <option value="all" className="bg-slate-900">All Users</option>
+                      <option value="pending" className="bg-slate-900">Pending WhatsApp</option>
+                      <option value="added" className="bg-slate-900">Added to WhatsApp</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Message</label>
+                  <textarea
+                    value={campaignForm.body}
+                    onChange={(e) => setCampaignForm({ ...campaignForm, body: e.target.value })}
+                    required
+                    rows={6}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                    placeholder="Write your campaign update, launch message, or reminder..."
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={sendingCampaign}
+                  className="gradient-bg px-6 py-3 rounded-xl font-semibold disabled:opacity-50"
+                >
+                  {sendingCampaign ? 'Sending...' : 'Send Campaign'}
+                </button>
+              </form>
+            </div>
+
+            <div className="glass rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10">
+                <h4 className="font-bold">Recent Campaigns</h4>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/5">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Subject</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Segment</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Delivered</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Failed</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {campaigns.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-gray-400">No campaigns sent yet</td>
+                      </tr>
+                    ) : (
+                      campaigns.map((campaign) => (
+                        <tr key={campaign.id} className="hover:bg-white/5">
+                          <td className="px-6 py-3">{campaign.subject}</td>
+                          <td className="px-6 py-3 capitalize text-gray-300">{campaign.segment}</td>
+                          <td className="px-6 py-3 text-green-300">{campaign.sent_count}/{campaign.total_recipients}</td>
+                          <td className="px-6 py-3 text-red-300">{campaign.failed_count}</td>
+                          <td className="px-6 py-3 text-gray-400 text-sm">{new Date(campaign.created_at).toLocaleString()}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Users Tab */}
         {activeTab === 'users' && (
