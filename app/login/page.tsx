@@ -63,7 +63,7 @@ export default function LoginPage() {
           <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center">
             <span className="text-white font-bold text-xl">A</span>
           </div>
-          <span className="text-xl font-bold gradient-text">Apex Tech</span>
+          <span className="text-xl font-bold gradient-text">ApexBuilders</span>
         </Link>
 
         {/* Form Card */}

@@ -108,7 +108,7 @@ export default function SignUpPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold mb-2">Welcome to Apex Tech! 🎉</h2>
+          <h2 className="text-2xl font-bold mb-2">Welcome to ApexBuilders! 🎉</h2>
           <p className="text-gray-400 mb-4">Your account has been created successfully.</p>
           
           {/* WhatsApp Group Link */}
@@ -161,7 +161,7 @@ export default function SignUpPage() {
           <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center">
             <span className="text-white font-bold text-xl">A</span>
           </div>
-          <span className="text-xl font-bold gradient-text">Apex Tech</span>
+          <span className="text-xl font-bold gradient-text">ApexBuilders</span>
         </Link>
 
         {/* Form Card */}

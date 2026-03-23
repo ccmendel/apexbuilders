@@ -1,4 +1,4 @@
-# Apex Tech Academy
+# ApexBuilders
 
 A simple signup system with admin dashboard for managing users and courses. Built with Next.js, Supabase, and Resend.
 
@@ -13,6 +13,14 @@ A simple signup system with admin dashboard for managing users and courses. Buil
   - Add/manage courses with YouTube video links
   - Filter users by WhatsApp status
   - Create additional admin accounts from the dashboard
+
+## Training Focus
+
+- TikTok and social media growth systems
+- Digital asset creation and monetization
+- AI automation workflows
+- Video editing and AI video creation
+- DevOps fundamentals
 
 ## Tech Stack
 

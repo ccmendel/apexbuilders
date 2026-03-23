@@ -15,9 +15,9 @@ export async function POST(request: Request) {
     const { email, name } = await request.json()
 
     const { data, error } = await resend.emails.send({
-      from: 'Apex Tech Academy <onboarding@resend.dev>',
+      from: 'ApexBuilders <onboarding@resend.dev>',
       to: email,
-      subject: 'Welcome to Apex Tech Academy! 🚀',
+      subject: 'Welcome to ApexBuilders! 🚀',
       html: `
         <!DOCTYPE html>
         <html>
@@ -31,16 +31,16 @@ export async function POST(request: Request) {
               <div style="display: inline-block; width: 60px; height: 60px; background: linear-gradient(135deg, #8B5CF6, #EC4899); border-radius: 16px; line-height: 60px; font-size: 28px; font-weight: bold; color: white;">A</div>
             </div>
             
-            <h1 style="color: white; text-align: center; font-size: 28px; margin-bottom: 10px;">Welcome to Apex Tech Academy!</h1>
+            <h1 style="color: white; text-align: center; font-size: 28px; margin-bottom: 10px;">Welcome to ApexBuilders!</h1>
             
             <p style="color: #94a3b8; text-align: center; font-size: 16px; margin-bottom: 30px;">Hey ${name}, you're all set! 🎉</p>
             
             <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 24px; margin-bottom: 30px;">
               <h2 style="color: white; font-size: 18px; margin-bottom: 15px;">What's next?</h2>
               <ul style="color: #94a3b8; padding-left: 20px; line-height: 1.8;">
-                <li>Our admin will add you to our WhatsApp community soon</li>
-                <li>Log in to your dashboard to access courses</li>
-                <li>Connect with other learners and grow together</li>
+                <li>Join our WhatsApp community and start implementing immediately</li>
+                <li>Learn TikTok growth, social media strategy, and digital asset creation</li>
+                <li>Master AI automation, video editing, AI video creation, and DevOps skills</li>
               </ul>
             </div>
             
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
             </div>
             
             <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 30px; padding-top: 20px; text-align: center;">
-              <p style="color: #475569; font-size: 12px;">© 2024 Apex Tech Academy. All rights reserved.</p>
+              <p style="color: #475569; font-size: 12px;">© 2026 ApexBuilders. All rights reserved.</p>
             </div>
           </div>
         </body>

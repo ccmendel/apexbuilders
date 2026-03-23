@@ -16,7 +16,7 @@ export default function Home() {
           <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center">
             <span className="text-white font-bold text-xl">A</span>
           </div>
-          <span className="text-xl font-bold gradient-text">Apex Tech</span>
+          <span className="text-xl font-bold gradient-text">ApexBuilders</span>
         </div>
         <div className="flex items-center gap-4">
           <Link 
@@ -45,13 +45,13 @@ export default function Home() {
         </div>
 
         <h1 className="text-5xl md:text-7xl font-bold mb-6 max-w-4xl leading-tight">
-          Master <span className="gradient-text">Tech Skills</span> for the{' '}
-          <span className="gradient-text">21st Century</span>
+          Build Your <span className="gradient-text">Digital Brand</span> and{' '}
+          <span className="gradient-text">Career Skills</span>
         </h1>
 
         <p className="text-xl text-gray-400 mb-12 max-w-2xl">
-          Join our exclusive WhatsApp community and learn web development, AI, cybersecurity, 
-          and more from industry experts. Level up your career today! 🚀
+          Join our WhatsApp learning community and grow on TikTok and social media while mastering 
+          digital assets, AI automation, video editing, AI video creation, and DevOps. 🚀
         </p>
 
         <Link 
@@ -84,8 +84,8 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-3">Web Development</h3>
-              <p className="text-gray-400">Learn HTML, CSS, JavaScript, React, Next.js and build real-world projects that impress employers.</p>
+              <h3 className="text-xl font-bold mb-3">Social Media Growth</h3>
+              <p className="text-gray-400">Learn TikTok and cross-platform growth strategies, content systems, and audience-building frameworks.</p>
             </div>
 
             {/* Feature 2 */}
@@ -95,8 +95,8 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-3">AI & Machine Learning</h3>
-              <p className="text-gray-400">Understand AI tools, prompt engineering, and how to leverage AI to 10x your productivity.</p>
+              <h3 className="text-xl font-bold mb-3">Digital Assets + AI Automation</h3>
+              <p className="text-gray-400">Create profitable digital assets and automate workflows with practical AI tools and no-code systems.</p>
             </div>
 
             {/* Feature 3 */}
@@ -106,8 +106,8 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-3">Cybersecurity</h3>
-              <p className="text-gray-400">Learn to protect systems, understand ethical hacking, and become security-conscious.</p>
+              <h3 className="text-xl font-bold mb-3">Video + DevOps Skills</h3>
+              <p className="text-gray-400">Master video editing, AI video creation, and DevOps fundamentals to ship, scale, and stand out.</p>
             </div>
           </div>
         </div>
@@ -149,8 +149,8 @@ export default function Home() {
                 3
               </div>
               <div className="glass rounded-xl p-6 flex-1">
-                <h3 className="font-bold text-lg mb-1">Access Premium Video Courses</h3>
-                <p className="text-gray-400">Watch our curated video lessons and learn at your own pace.</p>
+                <h3 className="font-bold text-lg mb-1">Access Premium Training Content</h3>
+                <p className="text-gray-400">Watch practical lessons and implement strategies immediately.</p>
               </div>
             </div>
           </div>
@@ -161,10 +161,10 @@ export default function Home() {
       <section className="relative z-10 px-6 pb-20">
         <div className="max-w-4xl mx-auto glass rounded-3xl p-12 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to Start Your <span className="gradient-text">Tech Journey</span>?
+            Ready to Start Your <span className="gradient-text">Builder Journey</span>?
           </h2>
           <p className="text-gray-400 mb-8 text-lg">
-            Join thousands of Gen-Z learners building their future in tech.
+            Join creators and builders learning in-demand skills for today’s digital economy.
           </p>
           <Link 
             href="/signup"
@@ -185,9 +185,9 @@ export default function Home() {
             <div className="w-8 h-8 gradient-bg rounded-lg flex items-center justify-center">
               <span className="text-white font-bold">A</span>
             </div>
-            <span className="font-bold">Apex Tech Academy</span>
+            <span className="font-bold">ApexBuilders</span>
           </div>
-          <p className="text-gray-500 text-sm">© 2024 Apex Tech Academy. All rights reserved.</p>
+          <p className="text-gray-500 text-sm">© 2026 ApexBuilders. All rights reserved.</p>
           <Link href="/admin/login" className="text-gray-600 hover:text-gray-400 text-sm">
             Admin
           </Link>

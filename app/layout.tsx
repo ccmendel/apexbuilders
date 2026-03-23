@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Apex Tech Academy - Learn 21st Century Tech Skills',
-  description: 'Join our community and learn valuable tech skills for the 21st century. Web development, AI, cybersecurity and more!',
+  title: 'ApexBuilders - Build Your Digital Future',
+  description: 'Grow on TikTok and social media, create digital assets, master AI automation, video editing, AI video creation, and DevOps.',
 }
 
 export default function RootLayout({
