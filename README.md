@@ -12,6 +12,7 @@ A simple signup system with admin dashboard for managing users and courses. Buil
   - Mark users as "Added to WhatsApp" to track who's been added to the group
   - Add/manage courses with YouTube video links
   - Filter users by WhatsApp status
+  - Create additional admin accounts from the dashboard
 
 ## Tech Stack
 
@@ -46,7 +47,11 @@ Create a `.env.local` file:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 RESEND_API_KEY=your_resend_api_key
+ADMIN_EMAIL=your_primary_admin_email
+ADMIN_PASSWORD=your_primary_admin_password
+ADMIN_SESSION_SECRET=your_long_random_secret
 ```
 
 ### 5. Run Development Server
@@ -59,10 +64,9 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Admin Login
 
-- **Email**: profmendel@gmail.com
-- **Password**: Apex@admin50
-
-Access admin at: `/admin/login`
+- Admin login now uses `ADMIN_EMAIL` and `ADMIN_PASSWORD` from environment variables.
+- You can create additional admins from the **Admins** tab in the admin dashboard.
+- Access admin at: `/admin/login`
 
 ## Deployment to Vercel
 

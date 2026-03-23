@@ -4,10 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-// Hardcoded admin credentials
-const ADMIN_EMAIL = 'profmendel@gmail.com'
-const ADMIN_PASSWORD = 'Apex@admin50'
-
 export default function AdminLoginPage() {
   const [formData, setFormData] = useState({
     email: '',
@@ -22,21 +18,32 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
 
-    // Check against hardcoded credentials
-    if (formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD) {
-      // Store admin session in localStorage
-      localStorage.setItem('adminAuth', JSON.stringify({
-        email: ADMIN_EMAIL,
-        isAdmin: true,
-        loginTime: Date.now()
-      }))
-      
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Invalid admin credentials' }))
+        setError(data.error || 'Invalid admin credentials')
+        setLoading(false)
+        return
+      }
+
       router.push('/admin/dashboard')
-    } else {
-      setError('Invalid admin credentials')
+      router.refresh()
+    } catch (err) {
+      setError('Unable to login right now. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    
-    setLoading(false)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

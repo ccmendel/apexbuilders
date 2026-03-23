@@ -24,36 +24,55 @@ interface Course {
   created_at: string
 }
 
+interface AdminAccount {
+  id: string
+  name: string
+  email: string
+  created_at: string
+}
+
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'courses'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'courses' | 'admins'>('users')
   const [users, setUsers] = useState<User[]>([])
   const [courses, setCourses] = useState<Course[]>([])
+  const [admins, setAdmins] = useState<AdminAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddCourse, setShowAddCourse] = useState(false)
+  const [showAddAdmin, setShowAddAdmin] = useState(false)
   const [courseForm, setCourseForm] = useState({
     title: '',
     description: '',
     youtube_url: ''
   })
+  const [adminForm, setAdminForm] = useState({
+    name: '',
+    email: '',
+    password: ''
+  })
   const [savingCourse, setSavingCourse] = useState(false)
+  const [savingAdmin, setSavingAdmin] = useState(false)
+  const [adminError, setAdminError] = useState('')
+  const [currentAdminEmail, setCurrentAdminEmail] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending' | 'added'>('all')
   const router = useRouter()
 
   useEffect(() => {
-    // Check admin auth
-    const adminAuth = localStorage.getItem('adminAuth')
-    if (!adminAuth) {
-      router.push('/admin/login')
-      return
+    async function bootstrap() {
+      const response = await fetch('/api/admin/me', {
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        router.push('/admin/login')
+        return
+      }
+
+      const data = await response.json()
+      setCurrentAdminEmail(data?.admin?.email || '')
+      await loadData()
     }
 
-    const auth = JSON.parse(adminAuth)
-    if (!auth.isAdmin) {
-      router.push('/admin/login')
-      return
-    }
-
-    loadData()
+    bootstrap()
   }, [router])
 
   async function loadData() {
@@ -80,11 +99,23 @@ export default function AdminDashboardPage() {
       setCourses(coursesData)
     }
 
+    const adminsResponse = await fetch('/api/admin/admins', {
+      credentials: 'include',
+    })
+
+    if (adminsResponse.ok) {
+      const adminsData = await adminsResponse.json()
+      setAdmins(adminsData.admins || [])
+    }
+
     setLoading(false)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminAuth')
+  const handleLogout = async () => {
+    await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
     router.push('/')
   }
 
@@ -122,6 +153,36 @@ export default function AdminDashboardPage() {
     }
 
     setSavingCourse(false)
+  }
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingAdmin(true)
+    setAdminError('')
+
+    try {
+      const response = await fetch('/api/admin/admins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(adminForm),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Failed to create admin' }))
+        setAdminError(data.error || 'Failed to create admin')
+        setSavingAdmin(false)
+        return
+      }
+
+      setAdminForm({ name: '', email: '', password: '' })
+      setShowAddAdmin(false)
+      await loadData()
+    } finally {
+      setSavingAdmin(false)
+    }
   }
 
   const deleteCourse = async (courseId: string) => {
@@ -253,6 +314,16 @@ export default function AdminDashboardPage() {
             }`}
           >
             Courses
+          </button>
+          <button
+            onClick={() => setActiveTab('admins')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+              activeTab === 'admins'
+                ? 'gradient-bg'
+                : 'glass hover:bg-white/20'
+            }`}
+          >
+            Admins
           </button>
         </div>
 
@@ -485,6 +556,144 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'admins' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Admin Accounts</h2>
+                <p className="text-gray-400 text-sm mt-1">Create and manage admin access</p>
+              </div>
+              <button
+                onClick={() => setShowAddAdmin(true)}
+                className="gradient-bg px-6 py-3 rounded-xl font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create Admin
+              </button>
+            </div>
+
+            {showAddAdmin && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                <div className="glass rounded-2xl p-8 max-w-md w-full">
+                  <h3 className="text-xl font-bold mb-6">Create New Admin</h3>
+
+                  {adminError && (
+                    <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4">
+                      <p className="text-red-300 text-sm">{adminError}</p>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleAddAdmin} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Name</label>
+                      <input
+                        type="text"
+                        value={adminForm.name}
+                        onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })}
+                        required
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                        placeholder="Admin Name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={adminForm.email}
+                        onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
+                        required
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                        placeholder="newadmin@example.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Password</label>
+                      <input
+                        type="password"
+                        value={adminForm.password}
+                        onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                        required
+                        minLength={8}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                        placeholder="Minimum 8 characters"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddAdmin(false)
+                          setAdminError('')
+                        }}
+                        className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors font-semibold"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingAdmin}
+                        className="flex-1 gradient-bg py-3 rounded-xl font-semibold disabled:opacity-50"
+                      >
+                        {savingAdmin ? 'Creating...' : 'Create Admin'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="glass rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/5">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Name</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Email</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Added On</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {admins.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                          No admins found
+                        </td>
+                      </tr>
+                    ) : (
+                      admins.map((admin) => (
+                        <tr key={admin.id} className="hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-4 font-medium">{admin.name}</td>
+                          <td className="px-6 py-4 text-purple-300">{admin.email}</td>
+                          <td className="px-6 py-4 text-gray-400 text-sm">
+                            {admin.id === 'bootstrap-admin'
+                              ? 'Configured via Vercel ENV'
+                              : new Date(admin.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              admin.email === currentAdminEmail
+                                ? 'bg-green-500/20 text-green-300'
+                                : 'bg-blue-500/20 text-blue-300'
+                            }`}>
+                              {admin.email === currentAdminEmail ? 'Current Session' : 'Active'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </main>

@@ -27,9 +27,20 @@ CREATE TABLE IF NOT EXISTS courses (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Admins table (for additional admin logins)
+CREATE TABLE IF NOT EXISTS admins (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_by TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
 -- Policies for users table
 -- Allow users to read their own data
@@ -77,6 +88,7 @@ CREATE POLICY "Allow course update" ON courses
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_added_to_whatsapp ON users(added_to_whatsapp);
 CREATE INDEX IF NOT EXISTS idx_courses_created_at ON courses(created_at);
+CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
