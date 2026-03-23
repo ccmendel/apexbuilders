@@ -9,9 +9,25 @@ interface Course {
   id: string
   title: string
   description: string
+  learning_objective?: string | null
   youtube_url: string
   thumbnail_url: string
   created_at: string
+}
+
+interface CurriculumItem {
+  id: string
+  course_id: string
+  subheading: string
+  description?: string | null
+  video_url: string
+  pdf_url?: string | null
+  extra_text?: string | null
+  position: number
+}
+
+interface CourseWithCurriculum extends Course {
+  curriculum: CurriculumItem[]
 }
 
 interface UserData {
@@ -21,7 +37,7 @@ interface UserData {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserData | null>(null)
-  const [courses, setCourses] = useState<Course[]>([])
+  const [courses, setCourses] = useState<CourseWithCurriculum[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -40,14 +56,32 @@ export default function DashboardPage() {
         email: authUser.email || ''
       })
 
-      // Fetch courses
+      // Fetch courses and curriculum
       const { data: coursesData } = await supabase
         .from('courses')
         .select('*')
         .order('created_at', { ascending: false })
 
+      const { data: curriculumData } = await supabase
+        .from('course_curriculum_items')
+        .select('*')
+        .order('position', { ascending: true })
+
       if (coursesData) {
-        setCourses(coursesData)
+        const grouped = new Map<string, CurriculumItem[]>()
+
+        for (const item of (curriculumData || []) as CurriculumItem[]) {
+          const existing = grouped.get(item.course_id) || []
+          existing.push(item)
+          grouped.set(item.course_id, existing)
+        }
+
+        const merged = (coursesData as Course[]).map((course) => ({
+          ...course,
+          curriculum: grouped.get(course.id) || [],
+        }))
+
+        setCourses(merged)
       }
 
       setLoading(false)
@@ -153,7 +187,7 @@ export default function DashboardPage() {
               <p className="text-gray-400">New courses will appear here soon. Stay tuned!</p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
               {courses.map((course) => {
                 const videoId = getYouTubeId(course.youtube_url)
                 const thumbnail = course.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null)
@@ -187,19 +221,59 @@ export default function DashboardPage() {
                     
                     {/* Content */}
                     <div className="p-5">
-                      <h3 className="font-bold text-lg mb-2 line-clamp-2">{course.title}</h3>
-                      <p className="text-gray-400 text-sm mb-4 line-clamp-2">{course.description}</p>
-                      <a
-                        href={course.youtube_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 gradient-bg px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
-                      >
-                        Watch Now
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
+                      <h3 className="font-bold text-lg mb-2">{course.title}</h3>
+                      <p className="text-gray-400 text-sm mb-3">{course.description}</p>
+                      {course.learning_objective && (
+                        <p className="text-sm mb-4"><span className="text-gray-400">Learning objective:</span> {course.learning_objective}</p>
+                      )}
+
+                      <div className="mb-3">
+                        <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold">
+                          {course.curriculum.length} lessons
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {course.curriculum.length === 0 ? (
+                          <a
+                            href={course.youtube_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 gradient-bg px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+                          >
+                            Watch Course Intro
+                          </a>
+                        ) : (
+                          course.curriculum.map((lesson, index) => (
+                            <div key={lesson.id} className="rounded-xl bg-white/5 p-3">
+                              <p className="font-semibold text-sm">{index + 1}. {lesson.subheading}</p>
+                              {lesson.description && <p className="text-xs text-gray-400 mt-1">{lesson.description}</p>}
+                              {lesson.extra_text && <p className="text-xs text-gray-300 mt-1">{lesson.extra_text}</p>}
+
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <a
+                                  href={lesson.video_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1 rounded-lg gradient-bg text-xs font-semibold"
+                                >
+                                  Watch Video
+                                </a>
+                                {lesson.pdf_url && (
+                                  <a
+                                    href={lesson.pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 text-xs font-semibold"
+                                  >
+                                    Open PDF
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                 )

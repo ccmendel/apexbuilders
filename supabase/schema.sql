@@ -26,8 +26,25 @@ CREATE TABLE IF NOT EXISTS courses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
   description TEXT,
+  learning_objective TEXT,
   youtube_url TEXT NOT NULL,
   thumbnail_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS learning_objective TEXT;
+
+-- Course curriculum items (multiple lessons per course)
+CREATE TABLE IF NOT EXISTS course_curriculum_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  subheading TEXT NOT NULL,
+  description TEXT,
+  video_url TEXT NOT NULL,
+  pdf_url TEXT,
+  extra_text TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -58,6 +75,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE course_curriculum_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 
@@ -115,10 +133,30 @@ CREATE POLICY "Allow course delete" ON courses
 CREATE POLICY "Allow course update" ON courses
   FOR UPDATE USING (true);
 
+-- Policies for curriculum items table
+DROP POLICY IF EXISTS "Anyone can view curriculum" ON course_curriculum_items;
+DROP POLICY IF EXISTS "Allow curriculum insert" ON course_curriculum_items;
+DROP POLICY IF EXISTS "Allow curriculum delete" ON course_curriculum_items;
+DROP POLICY IF EXISTS "Allow curriculum update" ON course_curriculum_items;
+
+CREATE POLICY "Anyone can view curriculum" ON course_curriculum_items
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow curriculum insert" ON course_curriculum_items
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow curriculum delete" ON course_curriculum_items
+  FOR DELETE USING (true);
+
+CREATE POLICY "Allow curriculum update" ON course_curriculum_items
+  FOR UPDATE USING (true);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_added_to_whatsapp ON users(added_to_whatsapp);
 CREATE INDEX IF NOT EXISTS idx_courses_created_at ON courses(created_at);
+CREATE INDEX IF NOT EXISTS idx_curriculum_course_id ON course_curriculum_items(course_id);
+CREATE INDEX IF NOT EXISTS idx_curriculum_position ON course_curriculum_items(course_id, position);
 CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
 CREATE INDEX IF NOT EXISTS idx_campaigns_created_at ON campaigns(created_at);
 
@@ -134,6 +172,7 @@ $$ language 'plpgsql';
 -- Triggers to auto-update updated_at
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 DROP TRIGGER IF EXISTS update_courses_updated_at ON courses;
+DROP TRIGGER IF EXISTS update_course_curriculum_items_updated_at ON course_curriculum_items;
 
 CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
@@ -144,3 +183,25 @@ CREATE TRIGGER update_courses_updated_at
   BEFORE UPDATE ON courses
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_course_curriculum_items_updated_at
+  BEFORE UPDATE ON course_curriculum_items
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Storage bucket for curriculum PDFs
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('course-assets', 'course-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Public can read course assets" ON storage.objects;
+DROP POLICY IF EXISTS "Service role can upload course assets" ON storage.objects;
+
+CREATE POLICY "Public can read course assets" ON storage.objects
+  FOR SELECT
+  USING (bucket_id = 'course-assets');
+
+CREATE POLICY "Service role can upload course assets" ON storage.objects
+  FOR ALL
+  USING (bucket_id = 'course-assets' AND auth.role() = 'service_role')
+  WITH CHECK (bucket_id = 'course-assets' AND auth.role() = 'service_role');

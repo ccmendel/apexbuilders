@@ -21,9 +21,34 @@ interface Course {
   id: string
   title: string
   description: string
+  learning_objective?: string | null
   youtube_url: string
   thumbnail_url: string
   created_at: string
+}
+
+interface CurriculumItem {
+  id: string
+  course_id: string
+  subheading: string
+  description?: string | null
+  video_url: string
+  pdf_url?: string | null
+  extra_text?: string | null
+  position: number
+  created_at: string
+}
+
+interface CourseWithCurriculum extends Course {
+  curriculum: CurriculumItem[]
+}
+
+interface CurriculumDraft {
+  subheading: string
+  description: string
+  video_url: string
+  pdf_url: string
+  extra_text: string
 }
 
 interface AdminAccount {
@@ -47,7 +72,7 @@ interface Campaign {
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'courses' | 'admins' | 'analytics' | 'ops' | 'campaigns'>('analytics')
   const [users, setUsers] = useState<User[]>([])
-  const [courses, setCourses] = useState<Course[]>([])
+  const [courses, setCourses] = useState<CourseWithCurriculum[]>([])
   const [admins, setAdmins] = useState<AdminAccount[]>([])
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,7 +81,16 @@ export default function AdminDashboardPage() {
   const [courseForm, setCourseForm] = useState({
     title: '',
     description: '',
-    youtube_url: ''
+    learning_objective: '',
+    curriculum: [
+      {
+        subheading: '',
+        description: '',
+        video_url: '',
+        pdf_url: '',
+        extra_text: '',
+      },
+    ] as CurriculumDraft[],
   })
   const [adminForm, setAdminForm] = useState({
     name: '',
@@ -64,6 +98,8 @@ export default function AdminDashboardPage() {
     password: ''
   })
   const [savingCourse, setSavingCourse] = useState(false)
+  const [courseError, setCourseError] = useState('')
+  const [uploadingPdfIndex, setUploadingPdfIndex] = useState<number | null>(null)
   const [savingAdmin, setSavingAdmin] = useState(false)
   const [adminError, setAdminError] = useState('')
   const [campaignForm, setCampaignForm] = useState({
@@ -117,8 +153,25 @@ export default function AdminDashboardPage() {
       .select('*')
       .order('created_at', { ascending: false })
 
+    const { data: curriculumData } = await supabase
+      .from('course_curriculum_items')
+      .select('*')
+      .order('position', { ascending: true })
+
     if (coursesData) {
-      setCourses(coursesData)
+      const grouped = new Map<string, CurriculumItem[]>()
+      for (const item of (curriculumData || []) as CurriculumItem[]) {
+        const current = grouped.get(item.course_id) || []
+        current.push(item)
+        grouped.set(item.course_id, current)
+      }
+
+      const merged = (coursesData as Course[]).map((course) => ({
+        ...course,
+        curriculum: grouped.get(course.id) || [],
+      }))
+
+      setCourses(merged)
     }
 
     const adminsResponse = await fetch('/api/admin/admins', {
@@ -204,24 +257,148 @@ export default function AdminDashboardPage() {
 
   const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault()
+    setCourseError('')
+
+    const trimmedCurriculum = courseForm.curriculum.map((item) => ({
+      ...item,
+      subheading: item.subheading.trim(),
+      description: item.description.trim(),
+      video_url: item.video_url.trim(),
+      pdf_url: item.pdf_url.trim(),
+      extra_text: item.extra_text.trim(),
+    }))
+
+    if (trimmedCurriculum.length === 0) {
+      setCourseError('Add at least one curriculum item.')
+      return
+    }
+
+    const hasInvalidItem = trimmedCurriculum.some((item) => !item.subheading || !item.video_url)
+    if (hasInvalidItem) {
+      setCourseError('Each curriculum item needs a subheading and video URL.')
+      return
+    }
+
     setSavingCourse(true)
     const supabase = createClient()
 
-    const { error } = await supabase
+    const { data: courseData, error } = await supabase
       .from('courses')
       .insert({
-        title: courseForm.title,
-        description: courseForm.description,
-        youtube_url: courseForm.youtube_url
+        title: courseForm.title.trim(),
+        description: courseForm.description.trim(),
+        learning_objective: courseForm.learning_objective.trim(),
+        youtube_url: trimmedCurriculum[0].video_url,
       })
+      .select('id')
+      .single()
 
-    if (!error) {
-      setCourseForm({ title: '', description: '', youtube_url: '' })
+    if (!error && courseData?.id) {
+      const curriculumPayload = trimmedCurriculum.map((item, index) => ({
+        course_id: courseData.id,
+        subheading: item.subheading,
+        description: item.description || null,
+        video_url: item.video_url,
+        pdf_url: item.pdf_url || null,
+        extra_text: item.extra_text || null,
+        position: index,
+      }))
+
+      const { error: curriculumError } = await supabase
+        .from('course_curriculum_items')
+        .insert(curriculumPayload)
+
+      if (curriculumError) {
+        setCourseError('Course created, but failed to save curriculum. Please edit and retry.')
+        setSavingCourse(false)
+        await loadData()
+        return
+      }
+
+      setCourseForm({
+        title: '',
+        description: '',
+        learning_objective: '',
+        curriculum: [
+          {
+            subheading: '',
+            description: '',
+            video_url: '',
+            pdf_url: '',
+            extra_text: '',
+          },
+        ],
+      })
       setShowAddCourse(false)
       loadData()
+    } else if (error) {
+      setCourseError('Failed to save course. Please check your schema and try again.')
     }
 
     setSavingCourse(false)
+  }
+
+  const updateCurriculumItem = (index: number, key: keyof CurriculumDraft, value: string) => {
+    setCourseForm((prev) => {
+      const next = [...prev.curriculum]
+      next[index] = { ...next[index], [key]: value }
+      return { ...prev, curriculum: next }
+    })
+  }
+
+  const addCurriculumItem = () => {
+    setCourseForm((prev) => ({
+      ...prev,
+      curriculum: [
+        ...prev.curriculum,
+        {
+          subheading: '',
+          description: '',
+          video_url: '',
+          pdf_url: '',
+          extra_text: '',
+        },
+      ],
+    }))
+  }
+
+  const removeCurriculumItem = (index: number) => {
+    setCourseForm((prev) => {
+      if (prev.curriculum.length === 1) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        curriculum: prev.curriculum.filter((_, itemIndex) => itemIndex !== index),
+      }
+    })
+  }
+
+  const uploadCurriculumPdf = async (index: number, file: File) => {
+    setUploadingPdfIndex(index)
+    setCourseError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/admin/upload-pdf', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      })
+
+      const data = await response.json().catch(() => ({ error: 'Failed to upload PDF' }))
+      if (!response.ok) {
+        setCourseError(data.error || 'Failed to upload PDF')
+        return
+      }
+
+      updateCurriculumItem(index, 'pdf_url', data.publicUrl || '')
+    } finally {
+      setUploadingPdfIndex(null)
+    }
   }
 
   const handleAddAdmin = async (e: React.FormEvent) => {
@@ -349,6 +526,7 @@ export default function AdminDashboardPage() {
 
   const maxWeeklyCount = Math.max(...weeklyTrend.map((day) => day.count), 1)
   const pendingUsers = users.filter((user) => !user.added_to_whatsapp).slice(0, 20)
+  const totalCurriculumItems = courses.reduce((total, course) => total + course.curriculum.length, 0)
 
   if (loading) {
     return (
@@ -432,72 +610,63 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === 'analytics'
-                ? 'gradient-bg'
-                : 'glass hover:bg-white/20'
-            }`}
-          >
-            Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === 'users' 
-                ? 'gradient-bg' 
-                : 'glass hover:bg-white/20'
-            }`}
-          >
-            Users
-          </button>
-          <button
-            onClick={() => setActiveTab('courses')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === 'courses' 
-                ? 'gradient-bg' 
-                : 'glass hover:bg-white/20'
-            }`}
-          >
-            Courses
-          </button>
-          <button
-            onClick={() => setActiveTab('admins')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === 'admins'
-                ? 'gradient-bg'
-                : 'glass hover:bg-white/20'
-            }`}
-          >
-            Admins
-          </button>
-          <button
-            onClick={() => setActiveTab('ops')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === 'ops'
-                ? 'gradient-bg'
-                : 'glass hover:bg-white/20'
-            }`}
-          >
-            WhatsApp Ops
-          </button>
-          <button
-            onClick={() => setActiveTab('campaigns')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === 'campaigns'
-                ? 'gradient-bg'
-                : 'glass hover:bg-white/20'
-            }`}
-          >
-            Broadcast
-          </button>
-        </div>
+        <div className="grid lg:grid-cols-[240px_1fr] gap-6 items-start">
+          <aside className="glass rounded-2xl p-3 lg:sticky lg:top-24">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-semibold transition-all ${
+                  activeTab === 'analytics' ? 'gradient-bg' : 'hover:bg-white/10'
+                }`}
+              >
+                Analytics
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-semibold transition-all ${
+                  activeTab === 'users' ? 'gradient-bg' : 'hover:bg-white/10'
+                }`}
+              >
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab('courses')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-semibold transition-all ${
+                  activeTab === 'courses' ? 'gradient-bg' : 'hover:bg-white/10'
+                }`}
+              >
+                Courses
+              </button>
+              <button
+                onClick={() => setActiveTab('ops')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-semibold transition-all ${
+                  activeTab === 'ops' ? 'gradient-bg' : 'hover:bg-white/10'
+                }`}
+              >
+                WhatsApp Ops
+              </button>
+              <button
+                onClick={() => setActiveTab('campaigns')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-semibold transition-all ${
+                  activeTab === 'campaigns' ? 'gradient-bg' : 'hover:bg-white/10'
+                }`}
+              >
+                Broadcast
+              </button>
+              <button
+                onClick={() => setActiveTab('admins')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-semibold transition-all ${
+                  activeTab === 'admins' ? 'gradient-bg' : 'hover:bg-white/10'
+                }`}
+              >
+                Admins
+              </button>
+            </div>
+          </aside>
 
-        {activeTab === 'analytics' && (
-          <div className="space-y-6">
+          <section className="space-y-6">
+            {activeTab === 'analytics' && (
+              <div className="space-y-6">
             <div className="grid md:grid-cols-4 gap-4">
               <div className="glass rounded-xl p-5">
                 <p className="text-sm text-gray-400">Signup → WhatsApp Conversion</p>
@@ -514,6 +683,10 @@ export default function AdminDashboardPage() {
               <div className="glass rounded-xl p-5">
                 <p className="text-sm text-gray-400">Courses Published</p>
                 <p className="text-3xl font-bold mt-1">{courses.length}</p>
+              </div>
+              <div className="glass rounded-xl p-5 md:col-span-2 lg:col-span-1">
+                <p className="text-sm text-gray-400">Total Curriculum Lessons</p>
+                <p className="text-3xl font-bold mt-1">{totalCurriculumItems}</p>
               </div>
             </div>
 
@@ -535,11 +708,11 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {activeTab === 'ops' && (
-          <div className="space-y-4">
+            {activeTab === 'ops' && (
+              <div className="space-y-4">
             <div className="glass rounded-xl p-5 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold">WhatsApp Operations Queue</h3>
@@ -585,11 +758,11 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             )}
-          </div>
-        )}
+              </div>
+            )}
 
-        {activeTab === 'campaigns' && (
-          <div className="space-y-6">
+            {activeTab === 'campaigns' && (
+              <div className="space-y-6">
             <div className="glass rounded-2xl p-6">
               <h3 className="text-xl font-bold mb-4">Broadcast Email Campaign</h3>
 
@@ -682,12 +855,11 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div>
+            {activeTab === 'users' && (
+              <div>
             {/* Filter */}
             <div className="flex gap-2 mb-6">
               <button
@@ -816,12 +988,11 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* Courses Tab */}
-        {activeTab === 'courses' && (
-          <div>
+            {activeTab === 'courses' && (
+              <div>
             {/* Add Course Button */}
             <div className="mb-6">
               <button
@@ -837,21 +1008,40 @@ export default function AdminDashboardPage() {
 
             {/* Add Course Modal */}
             {showAddCourse && (
-              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                <div className="glass rounded-2xl p-8 max-w-md w-full">
-                  <h2 className="text-xl font-bold mb-6">Add New Course</h2>
+              <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 overflow-y-auto">
+                <div className="glass rounded-2xl p-8 max-w-4xl w-full my-6">
+                  <h2 className="text-xl font-bold mb-2">Publish Course</h2>
+                  <p className="text-sm text-gray-400 mb-6">Add course details and curriculum lessons with optional PDFs.</p>
+
+                  {courseError && (
+                    <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm">{courseError}</div>
+                  )}
                   
                   <form onSubmit={handleAddCourse} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Course Title</label>
-                      <input
-                        type="text"
-                        value={courseForm.title}
-                        onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
-                        required
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
-                        placeholder="Introduction to Web Development"
-                      />
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Course Title</label>
+                        <input
+                          type="text"
+                          value={courseForm.title}
+                          onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                          required
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                          placeholder="Course title"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Learning Objective</label>
+                        <input
+                          type="text"
+                          value={courseForm.learning_objective}
+                          onChange={(e) => setCourseForm({ ...courseForm, learning_objective: e.target.value })}
+                          required
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                          placeholder="At the end of this course you should learn how to..."
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -862,26 +1052,124 @@ export default function AdminDashboardPage() {
                         required
                         rows={3}
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
-                        placeholder="Learn the basics of HTML, CSS, and JavaScript..."
+                        placeholder="What this course covers"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">YouTube Video URL (unlisted)</label>
-                      <input
-                        type="url"
-                        value={courseForm.youtube_url}
-                        onChange={(e) => setCourseForm({ ...courseForm, youtube_url: e.target.value })}
-                        required
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
-                        placeholder="https://www.youtube.com/watch?v=..."
-                      />
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">Curriculum</h3>
+                        <button
+                          type="button"
+                          onClick={addCurriculumItem}
+                          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium"
+                        >
+                          Add Lesson
+                        </button>
+                      </div>
+
+                      {courseForm.curriculum.map((item, index) => (
+                        <div key={index} className="glass rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium">Lesson {index + 1}</p>
+                            <button
+                              type="button"
+                              onClick={() => removeCurriculumItem(index)}
+                              className="px-3 py-1 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 text-xs font-semibold"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Subheading</label>
+                              <input
+                                type="text"
+                                value={item.subheading}
+                                onChange={(e) => updateCurriculumItem(index, 'subheading', e.target.value)}
+                                required
+                                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                                placeholder="Lesson title"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Video URL</label>
+                              <input
+                                type="url"
+                                value={item.video_url}
+                                onChange={(e) => updateCurriculumItem(index, 'video_url', e.target.value)}
+                                required
+                                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                                placeholder="https://www.youtube.com/watch?v=..."
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-300 mb-1">Lesson Description</label>
+                            <textarea
+                              value={item.description}
+                              onChange={(e) => updateCurriculumItem(index, 'description', e.target.value)}
+                              rows={2}
+                              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                              placeholder="What this lesson covers"
+                            />
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-3 items-end">
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">PDF URL (optional)</label>
+                              <input
+                                type="url"
+                                value={item.pdf_url}
+                                onChange={(e) => updateCurriculumItem(index, 'pdf_url', e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none"
+                                placeholder="Will auto-fill after upload"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Upload PDF to Supabase</label>
+                              <input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) {
+                                    uploadCurriculumPdf(index, file)
+                                  }
+                                }}
+                                className="block w-full text-sm text-gray-300 file:mr-4 file:px-3 file:py-2 file:border-0 file:rounded-lg file:bg-white/10 file:text-white hover:file:bg-white/20"
+                              />
+                              {uploadingPdfIndex === index && (
+                                <p className="text-xs text-purple-300 mt-1">Uploading PDF...</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-300 mb-1">Extra Text (optional)</label>
+                            <textarea
+                              value={item.extra_text}
+                              onChange={(e) => updateCurriculumItem(index, 'extra_text', e.target.value)}
+                              rows={2}
+                              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                              placeholder="Any extra note, assignment, or instruction"
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
 
                     <div className="flex gap-3 pt-4">
                       <button
                         type="button"
-                        onClick={() => setShowAddCourse(false)}
+                        onClick={() => {
+                          setShowAddCourse(false)
+                          setCourseError('')
+                        }}
                         className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors font-semibold"
                       >
                         Cancel
@@ -891,7 +1179,7 @@ export default function AdminDashboardPage() {
                         disabled={savingCourse}
                         className="flex-1 gradient-bg py-3 rounded-xl font-semibold disabled:opacity-50"
                       >
-                        {savingCourse ? 'Saving...' : 'Add Course'}
+                        {savingCourse ? 'Publishing...' : 'Publish Course'}
                       </button>
                     </div>
                   </form>
@@ -911,26 +1199,12 @@ export default function AdminDashboardPage() {
                 <p className="text-gray-400">Add your first course to get started.</p>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
                 {courses.map((course) => (
-                  <div key={course.id} className="glass rounded-2xl overflow-hidden">
-                    <div className="aspect-video bg-slate-800 flex items-center justify-center">
-                      <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </div>
+                  <div key={course.id} className="glass rounded-2xl overflow-hidden p-5">
                     <div className="p-5">
-                      <h3 className="font-bold text-lg mb-2">{course.title}</h3>
-                      <p className="text-gray-400 text-sm mb-4 line-clamp-2">{course.description}</p>
-                      <div className="flex gap-2">
-                        <a
-                          href={course.youtube_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 text-center py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-                        >
-                          View
-                        </a>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h3 className="font-bold text-lg">{course.title}</h3>
                         <button
                           onClick={() => deleteCourse(course.id)}
                           className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors text-sm font-medium"
@@ -938,16 +1212,55 @@ export default function AdminDashboardPage() {
                           Delete
                         </button>
                       </div>
+                      <p className="text-gray-400 text-sm mb-3">{course.description}</p>
+                      {course.learning_objective && (
+                        <p className="text-sm mb-4"><span className="text-gray-400">Learning objective:</span> {course.learning_objective}</p>
+                      )}
+
+                      <div className="mb-3">
+                        <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold">
+                          {course.curriculum.length} lessons
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {course.curriculum.map((lesson, index) => (
+                          <div key={lesson.id} className="rounded-xl bg-white/5 p-3">
+                            <p className="font-semibold text-sm">{index + 1}. {lesson.subheading}</p>
+                            {lesson.description && <p className="text-xs text-gray-400 mt-1">{lesson.description}</p>}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <a
+                                href={lesson.video_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium"
+                              >
+                                Video
+                              </a>
+                              {lesson.pdf_url && (
+                                <a
+                                  href={lesson.pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 text-xs font-medium"
+                                >
+                                  PDF
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        )}
+              </div>
+            )}
 
-        {activeTab === 'admins' && (
-          <div>
+            {activeTab === 'admins' && (
+              <div>
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold">Admin Accounts</h2>
@@ -1081,8 +1394,10 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
-          </div>
-        )}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </div>
   )

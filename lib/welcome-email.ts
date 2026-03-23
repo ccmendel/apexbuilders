@@ -38,7 +38,7 @@ export function getWelcomeEmailHtml(name: string) {
             </div>
 
             <div style="text-align:center; margin:0 0 22px;">
-              <a href="${dashboardLoginUrl}" target="_blank" style="display:inline-block; text-decoration:none; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff; font-weight:700; font-size:15px; padding:12px 20px; border-radius:999px;">Login to Dashboard & Start Learning</a>
+              <a href="${dashboardLoginUrl}" target="_blank" style="display:inline-block; text-decoration:none; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff; font-weight:700; font-size:15px; padding:12px 20px; border-radius:999px;">Start Learning</a>
             </div>
 
             <p style="margin:0; text-align:center; color:#94a3b8; font-size:13px; line-height:1.6;">
