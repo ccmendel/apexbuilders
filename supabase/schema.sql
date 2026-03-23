@@ -1,4 +1,4 @@
--- Supabase SQL Schema for Apex Tech Academy
+-- Supabase SQL Schema for ApexBuilders
 -- Run this in your Supabase SQL Editor
 
 -- Enable UUID extension
@@ -43,6 +43,13 @@ ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
 -- Policies for users table
+DROP POLICY IF EXISTS "Users can view own data" ON users;
+DROP POLICY IF EXISTS "Users can insert own data" ON users;
+DROP POLICY IF EXISTS "Service role can manage users" ON users;
+DROP POLICY IF EXISTS "Allow signup" ON users;
+DROP POLICY IF EXISTS "Allow read all" ON users;
+DROP POLICY IF EXISTS "Allow update" ON users;
+
 -- Allow users to read their own data
 CREATE POLICY "Users can view own data" ON users
   FOR SELECT USING (auth.uid() = id);
@@ -68,6 +75,11 @@ CREATE POLICY "Allow update" ON users
   FOR UPDATE USING (true);
 
 -- Policies for courses table
+DROP POLICY IF EXISTS "Anyone can view courses" ON courses;
+DROP POLICY IF EXISTS "Allow course insert" ON courses;
+DROP POLICY IF EXISTS "Allow course delete" ON courses;
+DROP POLICY IF EXISTS "Allow course update" ON courses;
+
 -- Everyone can read courses
 CREATE POLICY "Anyone can view courses" ON courses
   FOR SELECT USING (true);
@@ -100,6 +112,9 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers to auto-update updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+DROP TRIGGER IF EXISTS update_courses_updated_at ON courses;
+
 CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW
