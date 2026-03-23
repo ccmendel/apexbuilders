@@ -24,10 +24,10 @@ export default function DashboardPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     async function loadData() {
+      const supabase = createClient()
       const { data: { user: authUser } } = await supabase.auth.getUser()
       
       if (!authUser) {
@@ -54,9 +54,10 @@ export default function DashboardPage() {
     }
 
     loadData()
-  }, [router, supabase])
+  }, [router])
 
   const handleLogout = async () => {
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/')
   }

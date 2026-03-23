@@ -38,7 +38,6 @@ export default function AdminDashboardPage() {
   const [savingCourse, setSavingCourse] = useState(false)
   const [filter, setFilter] = useState<'all' | 'pending' | 'added'>('all')
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     // Check admin auth
@@ -59,6 +58,7 @@ export default function AdminDashboardPage() {
 
   async function loadData() {
     setLoading(true)
+    const supabase = createClient()
     
     // Fetch users
     const { data: usersData } = await supabase
@@ -89,6 +89,7 @@ export default function AdminDashboardPage() {
   }
 
   const toggleWhatsAppStatus = async (userId: string, currentStatus: boolean) => {
+    const supabase = createClient()
     const { error } = await supabase
       .from('users')
       .update({ added_to_whatsapp: !currentStatus })
@@ -104,6 +105,7 @@ export default function AdminDashboardPage() {
   const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault()
     setSavingCourse(true)
+    const supabase = createClient()
 
     const { error } = await supabase
       .from('courses')
@@ -124,6 +126,7 @@ export default function AdminDashboardPage() {
 
   const deleteCourse = async (courseId: string) => {
     if (!confirm('Are you sure you want to delete this course?')) return
+    const supabase = createClient()
 
     const { error } = await supabase
       .from('courses')
